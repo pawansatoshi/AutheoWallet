@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autheo Web3 Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        :root {
+            --bg: #0b0f19; --card: #151b2b; --border: #2a3441; 
+            --primary: #3b82f6; --primary-hover: #2563eb;
+            --success: #10b981; --danger: #ef4444; --text: #e2e8f0; --text-muted: #94a3b8;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg); color: var(--text); min-height: 100vh; padding: 20px; }
+        
+        .dashboard { max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: 1fr; gap: 20px; }
+        @media (min-width: 900px) { .dashboard { grid-template-columns: 350px 1fr; } }
+        
+        header { display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 20px; padding: 20px; background: var(--card); border-radius: 12px; border: 1px solid var(--border); text-align: center;}
+        .logo { max-width: 250px; max-height: 100px; margin-bottom: 15px; object-fit: contain; }
+        
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+        .card-title { font-size: 1.1rem; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;}
+        
+        input { width: 100%; padding: 12px; margin-bottom: 10px; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; font-size: 14px; }
+        input:focus { outline: none; border-color: var(--primary); }
+        
+        button { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px; transition: 0.2s; }
+        button:hover { background: var(--primary-hover); }
+        button:disabled { background: var(--border); color: var(--text-muted); cursor: not-allowed; }
+        button.danger { background: var(--danger); margin-top: 5px; padding: 8px;}
+        button.icon-btn { width: auto; padding: 5px 10px; background: transparent; border: 1px solid var(--border); border-radius: 4px; font-size: 12px; margin-left: 5px; display: inline-flex; align-items: center;}
+        button.icon-btn:hover { background: var(--border); }
+
+        .stat-box { background: var(--bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border); text-align: center; margin-bottom: 10px; }
+        .stat-value { font-size: 1.5rem; font-weight: bold; color: var(--success); margin-top: 5px; word-break: break-all;}
+        
+        table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
+        th, td { padding: 10px; border-bottom: 1px solid var(--border); word-break: break-all; }
+        th { color: var(--text-muted); font-weight: normal; }
+        
+        a.explorer-link { color: var(--primary); text-decoration: none; }
+        a.explorer-link:hover { text-decoration: underline; }
+        
+        .flex-row { display: flex; gap: 10px; align-items: center; }
+        .badge { background: var(--border); padding: 4px 8px; border-radius: 4px; font-size: 11px; color: var(--text-muted); }
+        
+        #qrcode { background: white; padding: 15px; border-radius: 8px; width: fit-content; margin: 0 auto; }
+        
+        .contact-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 8px;}
+        .contact-info { flex-grow: 1; overflow: hidden; }
+        .contact-name { font-weight: bold; font-size: 14px; }
+        .contact-address { font-size: 11px; color: var(--text-muted); text-overflow: ellipsis; overflow: hidden; }
+        
+        .batch-row { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <img src="logo.png" alt="Autheo Web3" class="logo" onerror="this.style.display='none';">
+    <h1>Autheo Enterprise Wallet</h1>
+    <p style="color: var(--text-muted); font-size: 14px; margin-top: 5px;">Supported: Web Extensions, Mises, Brave, Kiwi & Mobile Wallets</p>
+</header>
+
+<div class="dashboard">
+    <div class="panel">
+        <div class="card">
+            <button id="connectBtn" onclick="connectWallet()">Connect Web3 Wallet</button>
+            <div id="walletStats" style="display: none; margin-top: 20px;">
+                <div class="stat-box">
+                    <div style="font-size: 12px; color: var(--text-muted);">Network Status</div>
+                    <div style="color: var(--success); font-weight: bold;">Connected to Autheo V2</div>
+                </div>
+                <div class="stat-box">
+                    <div style="font-size: 12px; color: var(--text-muted);">Total Balance</div>
+                    <div class="stat-value" id="balanceDisplay">0.00 THEO</div>
+                </div>
+                <div class="stat-box">
+                    <div style="font-size: 12px; color: var(--text-muted);">My Address</div>
+                    <div class="flex-row" style="justify-content: center; margin-top: 5px;">
+                        <span id="userAddress" style="font-size: 11px;">0x...</span>
+                        <button class="icon-btn" onclick="copyToClipboard('userAddressRaw')">📋 Copy</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Send THEO (Single)</div>
+            <input type="text" id="singleRecipient" placeholder="Recipient Address (0x...)">
+            <input type="number" id="singleAmount" placeholder="Amount (THEO)">
+            <button id="sendSingleBtn" onclick="sendSingleTx()" disabled>Broadcast Transaction</button>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Receive</div>
+            <div id="qrcode"></div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="card">
+            <div class="card-title">
+                Address Book
+                <span class="badge" id="contactCount">0 Saved</span>
+            </div>
+            <div class="flex-row">
+                <input type="text" id="contactName" placeholder="Name / Alias" style="width: 40%;">
+                <input type="text" id="contactAddress" placeholder="Wallet Address (0x...)" style="width: 60%;">
+            </div>
+            <button onclick="saveContact()" style="margin-bottom: 15px;">Add to Contacts</button>
+            <div id="contactsList"></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Contract Deployment (BatchSender)</div>
+            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">Deploy your own Multi-Send contract to execute batch transfers.</p>
+            <button id="deployBtn" onclick="deployContract()" disabled>Deploy Utility Contract</button>
+            <div id="activeContractBox" style="display: none; margin-top: 15px; padding: 10px; background: var(--bg); border: 1px solid var(--primary); border-radius: 6px;">
+                <span style="font-size: 12px; color: var(--primary);">Active Contract:</span><br>
+                <span id="activeContractAddress" style="font-size: 11px;"></span>
+                <button class="icon-btn" onclick="copyToClipboard('activeContractRaw')">📋 Copy</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Batch Transfer (Multi-Send)</div>
+            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">Select recipients from your Address Book. Requires deployed contract.</p>
+            <div id="batchStagingArea">
+                <p style="font-size: 12px; color: var(--danger);">Add contacts to address book first.</p>
+            </div>
+            <button id="executeBatchBtn" onclick="executeBatch()" disabled style="margin-top: 10px;">Execute Batch Transfer</button>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Network Ledger</div>
+            <div style="overflow-x: auto;">
+                <table id="ledgerTable">
+                    <tr>
+                        <th>Txn Hash</th>
+                        <th>Type</th>
+                        <th>Gas Used</th>
+                        <th>Status</th>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let provider;
+    let signer;
+    let userAddressStr = "";
+    let rawAddressStorage = { userAddressRaw: "", activeContractRaw: "" };
+    
+    // Address Book State
+    let contacts = JSON.parse(localStorage.getItem('autheo_contacts')) || [];
+    let deployedContractAddress = localStorage.getItem('autheo_batch_contract') || "";
+
+    // Autheo Configuration
+    const autheoNetwork = {
+        chainId: '0x311', // 785
+        chainName: 'Autheo Testnet',
+        nativeCurrency: { name: 'THEO', symbol: 'THEO', decimals: 18 },
+        rpcUrls: ['https://testnet-rpc1.autheo.com'],
+        blockExplorerUrls: ['https://testnet-explorer.autheo.com']
+    };
+
+    const CONTRACT_ABI = [
+        {"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"sender","type":"address"},{"indexed":false,"internalType":"uint256","name":"totalAmount","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"recipientCount","type":"uint256"}],"name":"BatchTransferExecuted","type":"event"},
+        {"inputs":[{"internalType":"address[]","name":"recipients","type":"address[]"},{"internalType":"uint256[]","name":"amounts","type":"uint256[]"}],"name":"sendBatch","outputs":[],"stateMutability":"payable","type":"function"}
+    ];
+    
+    // Developer: Paste Remix Bytecode here!
+    const CONTRACT_BYTECODE = "0x..."; 
+
+    // --- INITIALIZATION ---
+    window.onload = () => {
+        renderContacts();
+        if(deployedContractAddress) {
+            showDeployedContract(deployedContractAddress);
+        }
+    };
+
+    // --- CORE WALLET ---
+    async function connectWallet() {
+        if (typeof window.ethereum !== 'undefined') {
+            try {
+                // Ethers.js handles injected providers universally
+                provider = new ethers.BrowserProvider(window.ethereum);
+                await provider.send("eth_requestAccounts", []);
+                signer = await provider.getSigner();
+                userAddressStr = await signer.getAddress();
+                
+                await enforceNetwork();
+
+                // Update UI
+                document.getElementById('connectBtn').style.display = "none";
+                document.getElementById('walletStats').style.display = "block";
+                
+                rawAddressStorage.userAddressRaw = userAddressStr;
+                document.getElementById('userAddress').innerText = userAddressStr.substring(0,6) + "..." + userAddressStr.substring(38);
+                
+                document.getElementById('sendSingleBtn').disabled = false;
+                document.getElementById('deployBtn').disabled = false;
+                
+                // QR Code
+                document.getElementById('qrcode').innerHTML = "";
+                new QRCode(document.getElementById("qrcode"), userAddressStr);
+
+                updateBalance();
+                checkBatchReadiness();
+                
+                window.ethereum.on('accountsChanged', () => window.location.reload());
+                window.ethereum.on('chainChanged', () => window.location.reload());
+
+            } catch (error) {
+                console.error(error);
+                alert("Connection failed. Check your extension.");
+            }
+        } else {
+            alert('No Web3 Provider found. Please install Mises, Brave, or MetaMask extension.');
+        }
+    }
+
+    async function enforceNetwork() {
+        const network = await provider.getNetwork();
+        if (network.chainId !== 785n) {
+            try { await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: autheoNetwork.chainId }] }); } 
+            catch (e) {
+                if (e.code === 4902) { await window.ethereum.request({ method: 'wallet_addEthereumChain', params: [autheoNetwork] }); }
+            }
+        }
+    }
+
+    async function updateBalance() {
+        if (!userAddressStr) return;
+        const bal = await provider.getBalance(userAddressStr);
+        document.getElementById('balanceDisplay').innerText = parseFloat(ethers.formatEther(bal)).toFixed(4) + " THEO";
+    }
+
+    // --- SINGLE TRANSFER ---
+    async function sendSingleTx() {
+        const to = document.getElementById('singleRecipient').value;
+        const amt = document.getElementById('singleAmount').value;
+        if (!ethers.isAddress(to) || !amt) return alert("Invalid Input");
+
+        const btn = document.getElementById('sendSingleBtn');
+        btn.innerText = "Broadcasting..."; btn.disabled = true;
+
+        try {
+            const tx = await signer.sendTransaction({ to: to, value: ethers.parseEther(amt) });
+            const receipt = await tx.wait();
+            
+            const gas = ethers.formatEther(receipt.gasUsed * receipt.gasPrice);
+            addLedger(receipt.hash, "Single Transfer", gas);
+            speak("Transfer complete");
+            updateBalance();
+            document.getElementById('singleAmount').value = "";
+        } catch (e) {
+            console.error(e); alert("Transaction Failed");
+        } finally {
+            btn.innerText = "Broadcast Transaction"; btn.disabled = false;
+        }
+    }
+
+    // --- CONTACTS MANAGER ---
+    function saveContact() {
+        const name = document.getElementById('contactName').value;
+        const addr = document.getElementById('contactAddress').value;
+        if(!name || !ethers.isAddress(addr)) return alert("Provide valid name and EVM address.");
+        
+        contacts.push({ name, address: addr });
+        localStorage.setItem('autheo_contacts', JSON.stringify(contacts));
+        
+        document.getElementById('contactName').value = "";
+        document.getElementById('contactAddress').value = "";
+        renderContacts();
+    }
+
+    function deleteContact(index) {
+        contacts.splice(index, 1);
+        localStorage.setItem('autheo_contacts', JSON.stringify(contacts));
+        renderContacts();
+    }
+
+    function renderContacts() {
+        const list = document.getElementById('contactsList');
+        const staging = document.getElementById('batchStagingArea');
+        document.getElementById('contactCount').innerText = contacts.length + " Saved";
+        
+        list.innerHTML = "";
+        staging.innerHTML = "";
+
+        if(contacts.length === 0) {
+            staging.innerHTML = `<p style="font-size: 12px; color: var(--text-muted);">Add contacts to enable batch transfer.</p>`;
+            return;
+        }
+
+        contacts.forEach((c, i) => {
+            // Render Address Book
+            list.innerHTML += `
+                <div class="contact-item">
+                    <div class="contact-info">
+                        <div class="contact-name">${c.name}</div>
+                        <div class="contact-address">${c.address}</div>
+                    </div>
+                    <div class="flex-row">
+                        <button class="icon-btn" onclick="copyToClipboardText('${c.address}')">📋</button>
+                        <button class="icon-btn danger" style="padding: 5px; margin: 0;" onclick="deleteContact(${i})">X</button>
+                    </div>
+                </div>
+            `;
+
+            // Render Batch Staging
+            staging.innerHTML += `
+                <div class="batch-row">
+                    <div style="font-size: 13px; display: flex; align-items: center;">
+                        <input type="checkbox" id="batch_chk_${i}" class="batch-checkbox" value="${c.address}" style="width: auto; margin-right: 10px;">
+                        ${c.name}
+                    </div>
+                    <input type="number" id="batch_amt_${i}" placeholder="THEO" style="margin: 0; padding: 8px;">
+                </div>
+            `;
+        });
+        checkBatchReadiness();
+    }
+
+    // --- CONTRACT & BATCH TRANSFER ---
+    async function deployContract() {
+        if(CONTRACT_BYTECODE.length < 10) return alert("Developer: Paste Remix Bytecode first!");
+        const btn = document.getElementById('deployBtn');
+        btn.innerText = "Deploying to Autheo..."; btn.disabled = true;
+
+        try {
+            const factory = new ethers.ContractFactory(CONTRACT_ABI, CONTRACT_BYTECODE, signer);
+            const contract = await factory.deploy();
+            const receipt = await contract.deploymentTransaction().wait();
+            const address = await contract.getAddress();
+
+            localStorage.setItem('autheo_batch_contract', address);
+            deployedContractAddress = address;
+            
+            showDeployedContract(address);
+            addLedger(receipt.hash, "Contract Deploy", ethers.formatEther(receipt.gasUsed * receipt.gasPrice));
+            speak("Contract Deployment Complete");
+            checkBatchReadiness();
+            
+        } catch(e) {
+            console.error(e); alert("Deployment failed.");
+        } finally {
+            btn.innerText = "Deploy Utility Contract"; btn.disabled = false;
+        }
+    }
+
+    function showDeployedContract(address) {
+        rawAddressStorage.activeContractRaw = address;
+        document.getElementById('activeContractAddress').innerText = address;
+        document.getElementById('activeContractBox').style.display = "block";
+        document.getElementById('deployBtn').style.display = "none";
+    }
+
+    function checkBatchReadiness() {
+        const btn = document.getElementById('executeBatchBtn');
+        if(deployedContractAddress && signer && contacts.length > 0) {
+            btn.disabled = false;
+        } else {
+            btn.disabled = true;
+        }
+    }
+
+    async function executeBatch() {
+        const checks = document.querySelectorAll('.batch-checkbox');
+        let recipients = [];
+        let amounts = [];
+        let totalVal = 0n;
+
+        checks.forEach((chk, i) => {
+            if(chk.checked) {
+                const amtStr = document.getElementById(`batch_amt_${i}`).value;
+                if(amtStr && parseFloat(amtStr) > 0) {
+                    recipients.push(chk.value);
+                    const amtWei = ethers.parseEther(amtStr);
+                    amounts.push(amtWei);
+                    totalVal += amtWei;
+                }
+            }
+        });
+
+        if(recipients.length === 0) return alert("Select at least one contact and enter amounts.");
+
+        const btn = document.getElementById('executeBatchBtn');
+        btn.innerText = "Executing Batch..."; btn.disabled = true;
+
+        try {
+            const contract = new ethers.Contract(deployedContractAddress, CONTRACT_ABI, signer);
+            const tx = await contract.sendBatch(recipients, amounts, { value: totalVal });
+            const receipt = await tx.wait();
+
+            addLedger(receipt.hash, `Batch (${recipients.length})`, ethers.formatEther(receipt.gasUsed * receipt.gasPrice));
+            speak("Batch transfer successful");
+            updateBalance();
+            
+            // Uncheck boxes
+            checks.forEach(chk => chk.checked = false);
+            
+        } catch(e) {
+            console.error(e); alert("Batch execution failed.");
+        } finally {
+            btn.innerText = "Execute Batch Transfer"; btn.disabled = false;
+        }
+    }
+
+    // --- UTILITIES ---
+    function copyToClipboard(storageKey) {
+        copyToClipboardText(rawAddressStorage[storageKey]);
+    }
+    
+    function copyToClipboardText(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            alert("Copied to clipboard!");
+        });
+    }
+
+    function addLedger(hash, type, gas) {
+        const table = document.getElementById('ledgerTable');
+        const row = table.insertRow(1);
+        const shortHash = hash.substring(0, 6) + "..." + hash.substring(hash.length - 4);
+        
+        row.insertCell(0).innerHTML = `<div class="flex-row"><a href="https://testnet-explorer.autheo.com/tx/${hash}" target="_blank" class="explorer-link">${shortHash}</a> <button class="icon-btn" onclick="copyToClipboardText('${hash}')">📋</button></div>`;
+        row.insertCell(1).innerText = type;
+        row.insertCell(2).innerText = parseFloat(gas).toFixed(6);
+        row.insertCell(3).innerHTML = `<span style="color: var(--success)">Confirmed</span>`;
+    }
+
+    function speak(text) {
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+        }
+    }
+</script>
+</body>
+</html>
