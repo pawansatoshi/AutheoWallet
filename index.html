@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autheo Enterprise Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        :root {
+            --bg: #0b0f19; --card: #151b2b; --border: #2a3441; 
+            --primary: #3b82f6; --primary-hover: #2563eb;
+            --success: #10b981; --danger: #ef4444; --text: #e2e8f0; --text-muted: #94a3b8;
+            --accent: #8b5cf6;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 50px; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; display: grid; grid-template-columns: 1fr; gap: 20px; }
+        @media (min-width: 1000px) { .container { grid-template-columns: 380px 1fr; } }
+        header { background: var(--card); border-bottom: 1px solid var(--border); padding: 25px; text-align: center; margin-bottom: 20px; border-radius: 12px; margin: 20px auto; max-width: 1400px; width: calc(100% - 40px);}
+        .logo { max-width: 200px; margin-bottom: 10px; }
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        .card-title { font-size: 1.1rem; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; font-weight: 600;}
+        input, select { width: 100%; padding: 12px; margin-bottom: 10px; background: rgba(11, 15, 25, 0.5); border: 1px solid var(--border); color: var(--text); border-radius: 6px; transition: border-color 0.2s; }
+        input:focus, select:focus { outline: none; border-color: var(--primary); }
+        button { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;}
+        button:hover { background: var(--primary-hover); transform: translateY(-1px); }
+        button:active { transform: translateY(0); }
+        button:disabled { background: var(--border); color: var(--text-muted); cursor: not-allowed; transform: none;}
+        button.outline { background: transparent; border: 1px solid var(--primary); color: var(--primary); margin-top: 10px; }
+        button.outline:hover { background: rgba(59, 130, 246, 0.1); }
+        button.danger { background: rgba(239, 68, 68, 0.1); color: var(--danger); border: 1px solid var(--danger); }
+        button.danger:hover { background: var(--danger); color: white; }
+        .btn-small { width: auto; padding: 6px 12px; font-size: 12px; }
+        .icon-btn { background: transparent; border: 1px solid var(--border); padding: 4px 8px; border-radius: 4px; color: var(--text); width: auto; font-size: 12px; }
+        .icon-btn:hover { background: var(--border); }
+        .stat-box { background: rgba(11, 15, 25, 0.5); padding: 15px; border-radius: 8px; border: 1px solid var(--border); text-align: center; margin-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+        th, td { padding: 12px; border-bottom: 1px solid var(--border); text-align: left; word-break: break-all; }
+        th { color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; font-size: 11px;}
+        .contact-item { background: rgba(11, 15, 25, 0.5); padding: 12px; border-radius: 8px; margin-bottom: 10px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px;}
+        .contact-header { display: flex; justify-content: space-between; align-items: flex-start; }
+        .contact-balance { font-size: 12px; color: var(--success); font-weight: 600; background: rgba(16, 185, 129, 0.1); padding: 4px 8px; border-radius: 4px; display: inline-block;}
+        footer { margin-top: 50px; padding: 40px; background: var(--card); border-top: 1px solid var(--border); text-align: center; }
+        .link-group { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-top: 20px; }
+        .flex-row { display: flex; gap: 10px; align-items: center; }
+        .badge { background: var(--border); padding: 4px 8px; border-radius: 4px; font-size: 11px; color: var(--text-muted); }
+        a.explorer-link { color: var(--primary); text-decoration: none; font-weight: 500;}
+        a.explorer-link:hover { text-decoration: underline; }
+        .sub-row td { background: rgba(139, 92, 246, 0.05); border-bottom: 1px solid rgba(139, 92, 246, 0.1); color: var(--text-muted); padding-left: 24px;}
+        .sub-row-indicator { color: var(--accent); font-weight: bold; margin-right: 5px; }
+        
+        /* Spinner */
+        .spinner { border: 2px solid rgba(255,255,255,0.1); border-left-color: #fff; border-radius: 50%; width: 14px; height: 14px; animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<header>
+    <img src="logo.png" alt="Autheo Web3" class="logo" onerror="this.style.display='none';">
+    <h1>Autheo Enterprise Dashboard</h1>
+    <p style="color: var(--text-muted); margin-top: 5px;">Institutional Multi-Send & Wallet Manager</p>
+</header>
+
+<div class="container">
+    <!-- LEFT PANEL -->
+    <div class="panel">
+        <div class="card">
+            <button id="connectBtn" onclick="connectWallet()">🔗 Connect Wallet</button>
+            <div id="walletStats" style="display: none; margin-top: 15px;">
+                <div class="stat-box">
+                    <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Live Balance</div>
+                    <div id="balanceDisplay" style="font-size: 1.8rem; color: var(--success); font-weight: bold; margin: 5px 0;">0.0000 THEO</div>
+                </div>
+                <div class="flex-row" style="justify-content: center; gap: 5px; margin-bottom: 15px;">
+                    <span id="userAddressShort" style="font-size: 13px; font-family: monospace;">0x...</span>
+                    <button class="icon-btn" onclick="copyText(userAddressStr)">📋</button>
+                </div>
+                <button class="outline btn-small" onclick="enforceNetwork()" style="width: 100%;">Switch to Autheo Network</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Direct Transfer</div>
+            <select id="contactDropdown" onchange="document.getElementById('singleRecipient').value = this.value">
+                <option value="">Select from Contacts...</option>
+            </select>
+            <input type="text" id="singleRecipient" placeholder="Wallet Address (0x...)" spellcheck="false">
+            <input type="number" id="singleAmount" placeholder="Amount (THEO)" min="0" step="0.0001">
+            <button id="sendSingleBtn" onclick="sendSingleTx()" disabled>💸 Send THEO</button>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Receive Funds</div>
+            <div id="qrcode" style="background: white; padding: 15px; border-radius: 8px; width: fit-content; margin: 0 auto;"></div>
+            <p style="text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 15px;">Scan to receive THEO on Autheo Testnet</p>
+        </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="panel">
+        <div class="card">
+            <div class="card-title">
+                <div>Address Book <span class="badge" id="contactCount">0 Saved</span></div>
+                <div class="flex-row">
+                    <button class="btn-small outline" onclick="exportContacts()" title="Backup to JSON">💾 Backup</button>
+                    <button class="btn-small outline" onclick="document.getElementById('importFile').click()" title="Restore from JSON">📂 Restore</button>
+                    <input type="file" id="importFile" style="display:none" accept=".json" onchange="importContacts(event)">
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                <input type="text" id="contactName" placeholder="Name / Alias" style="flex: 1; margin: 0;">
+                <input type="text" id="contactAddress" placeholder="0x..." style="flex: 2; margin: 0;" spellcheck="false">
+            </div>
+            <button onclick="saveContact()">➕ Add Contact</button>
+            
+            <div style="margin-top: 15px; display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 12px; color: var(--text-muted);">Saved Wallets (Balances auto-refresh)</span>
+                <button class="icon-btn" onclick="fetchContactBalances()" title="Force Refresh Balances">🔄</button>
+            </div>
+            <div id="contactsList" style="margin-top: 10px; max-height: 300px; overflow-y: auto; padding-right: 5px;"></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">BatchSender Smart Contract</div>
+            <div id="deploySection">
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 15px; line-height: 1.4;">Deploy a Multi-Send utility contract to execute batch transfers, saving gas and time. If you already deployed one, link it below.</p>
+                
+                <div style="background: rgba(11,15,25,0.5); padding: 15px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 15px;">
+                    <div style="font-size: 12px; font-weight: 600; margin-bottom: 8px;">Link Existing Contract:</div>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="linkInput" placeholder="0x..." style="margin: 0; font-family: monospace;" spellcheck="false">
+                        <button onclick="linkContract()" style="width: auto; padding: 0 20px;">Link</button>
+                    </div>
+                </div>
+                
+                <div style="text-align: center; margin: 15px 0; position: relative;">
+                    <hr style="border-color: var(--border); position: absolute; width: 100%; top: 50%; z-index: 1;">
+                    <span style="background: var(--card); padding: 0 10px; position: relative; z-index: 2; font-size: 12px; color: var(--text-muted);">OR</span>
+                </div>
+                
+                <button id="deployBtn" class="outline" onclick="deployContract()" disabled>🚀 Deploy New Contract (Uses Gas)</button>
+            </div>
+            
+            <div id="activeBox" style="display: none; padding: 15px; background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <span style="color: var(--success); font-size: 12px; font-weight: 600;">✅ Smart Contract Active</span>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+                            <span id="activeAddr" style="font-size: 13px; font-family: monospace; color: var(--text);"></span>
+                            <button class="icon-btn" onclick="copyText(activeContract)" style="padding: 2px 6px;">📋</button>
+                        </div>
+                    </div>
+                    <button class="btn-small danger" onclick="unlink()">Unlink</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Multi-Wallet Transfer (Batch)</div>
+            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 15px;">Select recipients from your Address Book. Funds will be routed through your active Smart Contract in a single transaction.</p>
+            
+            <div id="batchArea" style="background: rgba(11,15,25,0.5); border: 1px solid var(--border); border-radius: 8px; padding: 10px; max-height: 250px; overflow-y: auto;">
+                <p style="font-size: 12px; color: var(--text-muted); text-align: center; padding: 10px;">Add contacts to see them here.</p>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; margin-top: 15px; font-size: 13px; border-top: 1px dashed var(--border); padding-top: 10px;">
+                <span style="color: var(--text-muted);">Total Selected:</span>
+                <span id="batchTotalDisplay" style="font-weight: bold; color: var(--primary);">0 THEO</span>
+            </div>
+            
+            <button id="batchBtn" onclick="executeBatch()" disabled style="margin-top: 15px; background: var(--accent);">🔥 Execute Batch Transfer</button>
+        </div>
+
+        <div class="card">
+            <div class="card-title">
+                Transaction Ledger
+                <div class="flex-row">
+                    <button class="btn-small outline" onclick="exportLedger('csv')">📄 CSV</button>
+                    <button class="btn-small outline" onclick="exportLedger('txt')">📝 TXT</button>
+                    <button class="btn-small danger" onclick="clearLedger()" title="Clear Ledger">🗑️</button>
+                </div>
+            </div>
+            <div style="overflow-x: auto;">
+                <table id="ledgerTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 25%;">Details / Hash</th>
+                            <th style="width: 25%;">Date & Time</th>
+                            <th style="width: 35%;">Action</th>
+                            <th style="width: 15%;">Amount/Gas</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ledgerBody">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+                <div id="emptyLedgerMsg" style="text-align: center; padding: 20px; font-size: 12px; color: var(--text-muted);">No transactions recorded yet.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer>
+    <h3 style="font-size: 16px; margin-bottom: 5px;">Project Socials & Builder</h3>
+    <p style="font-size: 12px; color: var(--text-muted);">Autheo Network V2 Ecosystem</p>
+    <div class="link-group">
+        <a href="https://testnet-faucet.autheo.com/" target="_blank" style="color: var(--primary); text-decoration: none; font-size: 14px;">🚰 Autheo Faucet</a>
+        <a href="https://x.com/pawansatoshix" target="_blank" style="color: var(--text-muted); text-decoration: none; font-size: 14px;">𝕏 Twitter</a>
+        <a href="https://t.me/pawansatoshiji" target="_blank" style="color: var(--text-muted); text-decoration: none; font-size: 14px;">💬 Telegram</a>
+        <a href="https://youtube.com/@PawanSatoshi" target="_blank" style="color: var(--text-muted); text-decoration: none; font-size: 14px;">📺 YouTube</a>
+        <a href="https://github.com/pawansatoshi" target="_blank" style="color: var(--text-muted); text-decoration: none; font-size: 14px;">🐱 GitHub</a>
+    </div>
+</footer>
+
+<script>
+    // --- STATE & CONFIG ---
+    let provider, signer, userAddressStr = "";
+    let contacts = JSON.parse(localStorage.getItem('auth_contacts_v2')) || [];
+    let activeContract = localStorage.getItem('auth_contract_v2') || "";
+    let ledgerData = JSON.parse(localStorage.getItem('auth_ledger_v2')) || []; // Store ledger persistently
+
+    const autheoNetwork = { 
+        chainId: '0x311', 
+        chainName: 'Autheo Testnet', 
+        nativeCurrency: { name: 'THEO', symbol: 'THEO', decimals: 18 }, 
+        rpcUrls: ['https://testnet-rpc1.autheo.com'], 
+        blockExplorerUrls: ['https://testnet-explorer.autheo.com'] 
+    };
+
+    const ABI = [{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"sender","type":"address"},{"indexed":false,"internalType":"uint256","name":"totalAmount","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"recipientCount","type":"uint256"}],"name":"BatchTransferExecuted","type":"event"},{"inputs":[{"internalType":"address[]","name":"recipients","type":"address[]"},{"internalType":"uint256[]","name":"amounts","type":"uint256[]"}],"name":"sendBatch","outputs":[],"stateMutability":"payable","type":"function"}];
+    const BYTECODE = "0x6080604052348015600e575f5ffd5b5061081b8061001c5f395ff3fe60806040526004361061001d575f3560e01c80638535d2ec14610021575b5f5ffd5b61003b600480360381019061003691906103f2565b61003d565b005b818190508484905014610085576040517f08c379a000000000000000000000000000000000000000000000000000000000815260040161007c906104ca565b60405180910390fd5b5f5f90505f5f90505b838390508110156100cd578383828181106100ac576100ab6104e8565b5b90506020020135826100be919061054b565b9150808060010191505061008e565b5080341015610111576040517f08c379a0000000000000000000000000000000000000000000000000000000008152600401610108906105c8565b60405180910390fd5b5f5f90505b85859050811015610217575f868683818110610135576101346104e8565b5b905060200201602081019061014a9190610640565b73ffffffffffffffffffffffffffffffffffffffff16858584818110610173576101726104e8565b5b9050602002013560405161018690610698565b5f6040518083038185875af1925050503d805f81146101c0576040519150601f19603f3d011682016040523d82523d5f602084013e6101c5565b606091505b5050905080610209576040517f08c379a0000000000000000000000000000000000000000000000000000000008152600401610200906106f6565b60405180910390fd5b508080600101915050610116565b505f81346102259190610714565b90505f8111156102d9575f3373ffffffffffffffffffffffffffffffffffffffff168260405161025490610698565b5f6040518083038185875af1925050503d805f811461028e576040519150601f19603f3d011682016040523d82523d5f602084013e610293565b606091505b50509050806102d7576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016102ce90610791565b60405180910390fd5b505b3373ffffffffffffffffffffffffffffffffffffffff167f8903ead3f8a739b2bb84406eae5d8b2f9d93946abc11f7fd5c4a68024d15bd0583888890506040516103249291906107be565b60405180910390a2505050505050565b5f5ffd5b5f5ffd5b5f5ffd5b5f5ffd5b5f5ffd5b5f5f83601f84011261035d5761035c61033c565b5b8235905067ffffffffffffffff81111561037a57610379610340565b5b60208301915083602082028301111561039657610395610344565b5b9250929050565b5f5f83601f8401126103b2576103b161033c565b5b8235905067ffffffffffffffff8111156103cf576103ce610340565b5b6020830191508360208202830111156103eb576103ea610344565b5b9250929050565b5f5f5f5f6040858703121561040a57610409610334565b5b5f85013567ffffffffffffffff81111561042757610426610338565b5b61043387828801610348565b9450945050602085013567ffffffffffffffff81111561045657610455610338565b5b6104628782880161039d565b925092505092959194509250565b5f82825260208201905092915050565b7f4d69736d617463686564206172726179206c656e6774687300000000000000005f82015250565b5f6104b4601883610470565b91506104bf82610480565b602082019050919050565b5f6020820190508181035f8301526104e1816104a8565b9050919050565b7f4e487b71000000000000000000000000000000000000000000000000000000005f52603260045260245ffd5b5f819050919050565b7f4e487b71000000000000000000000000000000000000000000000000000000005f52601160045260245ffd5b5f61055582610515565b915061056083610515565b92508282019050808211156105785761057761051e565b5b92915050565b7f496e73756666696369656e74205448454f2073656e7420666f722062617463685f82015250565b5f6105b2602083610470565b91506105bd8261057e565b602082019050919050565b5f6020820190508181035f8301526105df816105a6565b9050919050565b5f73ffffffffffffffffffffffffffffffffffffffff82169050919050565b5f61060f826105e6565b9050919050565b61061f81610605565b8114610629575f5ffd5b50565b5f8135905061063a81610616565b92915050565b5f6020828403121561065557610654610334565b5b5f6106628482850161062c565b91505092915050565b5f81905092915050565b50565b5f6106835f8361066b565b915061068e82610675565b5f82019050919050565b5f6106a282610678565b9150819050919050565b7f5472616e7366657220746f20726563697069656e74206661696c6564000000005f82015250565b5f6106e0601c83610470565b91506106eb826106ac565b602082019050919050565b5f6020820190508181035f83015261070d816106d4565b9050919050565b5f61071e82610515565b915061072983610515565b92508282039050818111156107415761074061051e565b5b92915050565b7f526566756e64206661696c6564000000000000000000000000000000000000005f82015250565b5f61077b600d83610470565b915061078682610747565b602082019050919050565b5f6020820190508181035f8301526107a88161076f565b9050919050565b6107b881610515565b82525050565b5f6040820190506107d15f8301856107af565b6107de60208301846107af565b939250505056fea2646970667358221220ae13e294be7b9731b523d7f39a98734178edf1c70b49a104375471feaf716c9d64736f6c63430008220033";
+
+    window.onload = () => { 
+        renderContacts(); 
+        renderLedger();
+        if(activeContract) showDeployedContract(activeContract); 
+    };
+
+    // --- WALLET CONNECTION ---
+    async function connectWallet() {
+        if (typeof window.ethereum === 'undefined') return alert("Install a Web3 Wallet extension/browser.");
+        try {
+            provider = new ethers.BrowserProvider(window.ethereum);
+            await provider.send("eth_requestAccounts", []);
+            signer = await provider.getSigner();
+            userAddressStr = await signer.getAddress();
+            
+            document.getElementById('connectBtn').style.display = "none";
+            document.getElementById('walletStats').style.display = "block";
+            document.getElementById('userAddressShort').innerText = userAddressStr.substring(0,8) + "..." + userAddressStr.substring(36);
+            document.getElementById('sendSingleBtn').disabled = false;
+            document.getElementById('deployBtn').disabled = false;
+            
+            document.getElementById('qrcode').innerHTML = "";
+            new QRCode(document.getElementById("qrcode"), { text: userAddressStr, width: 128, height: 128, colorDark : "#0b0f19", colorLight : "#ffffff" });
+            
+            updateBalance();
+            fetchContactBalances(); // Fetch balances for saved contacts
+            
+            // Listeners
+            window.ethereum.on('accountsChanged', () => location.reload());
+            window.ethereum.on('chainChanged', () => location.reload());
+            
+            setInterval(() => {
+                updateBalance();
+                fetchContactBalances(); // Periodic refresh
+            }, 15000);
+            
+        } catch(e) {
+            console.error(e); alert("Connection failed.");
+        }
+    }
+
+    async function enforceNetwork() {
+        try {
+            const net = await provider.getNetwork();
+            if(net.chainId === 785n) return alert("Already on Autheo Testnet!");
+            
+            await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: autheoNetwork.chainId }] });
+        } catch (e) {
+            if (e.code === 4902) {
+                await window.ethereum.request({ method: 'wallet_addEthereumChain', params: [autheoNetwork] });
+            }
+        }
+    }
+
+    async function updateBalance() {
+        if(!userAddressStr) return;
+        const bal = await provider.getBalance(userAddressStr);
+        document.getElementById('balanceDisplay').innerText = parseFloat(ethers.formatEther(bal)).toFixed(4) + " THEO";
+    }
+
+    // --- CONTACTS & BALANCES ---
+    function saveContact() {
+        const n = document.getElementById('contactName').value.trim();
+        const a = document.getElementById('contactAddress').value.trim();
+        if(!n || !ethers.isAddress(a)) return alert("Enter valid name and EVM address");
+        contacts.push({name:n, address:a});
+        localStorage.setItem('auth_contacts_v2', JSON.stringify(contacts));
+        renderContacts();
+        if(provider) fetchContactBalances();
+        document.getElementById('contactName').value = ""; document.getElementById('contactAddress').value = "";
+    }
+
+    function delContact(i) {
+        contacts.splice(i,1);
+        localStorage.setItem('auth_contacts_v2', JSON.stringify(contacts));
+        renderContacts();
+    }
+
+    function renderContacts() {
+        const list = document.getElementById('contactsList');
+        const batch = document.getElementById('batchArea');
+        const drop = document.getElementById('contactDropdown');
+        
+        document.getElementById('contactCount').innerText = `${contacts.length} Saved`;
+        list.innerHTML = ""; batch.innerHTML = ""; drop.innerHTML = '<option value="">Select from Contacts...</option>';
+        
+        if(contacts.length === 0) {
+            list.innerHTML = `<div style="text-align:center; padding:10px; color:var(--text-muted); font-size:12px;">No contacts saved.</div>`;
+            batch.innerHTML = `<div style="text-align:center; padding:10px; color:var(--text-muted); font-size:12px;">No contacts to select.</div>`;
+            checkBtn();
+            return;
+        }
+
+        contacts.forEach((c, i) => {
+            drop.innerHTML += `<option value="${c.address}">${c.name}</option>`;
+            
+            list.innerHTML += `
+                <div class="contact-item">
+                    <div class="contact-header">
+                        <div>
+                            <span style="font-weight: 600; font-size:14px;">${c.name}</span>
+                            <div style="font-size: 11px; color: var(--text-muted); font-family: monospace; margin-top:2px;">${c.address}</div>
+                        </div>
+                        <div style="display:flex; gap:5px;">
+                            <button class="icon-btn" onclick="copyText('${c.address}')">📋</button>
+                            <button class="icon-btn danger" style="color:var(--danger)" onclick="delContact(${i})">✖</button>
+                        </div>
+                    </div>
+                    <div><span class="contact-balance" id="bal_${i}">Balance: ...</span></div>
+                </div>`;
+                
+            batch.innerHTML += `
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; flex:1; overflow:hidden;">
+                        <input type="checkbox" id="chk${i}" value="${c.address}" onchange="calcBatchTotal()" style="width:auto; margin:0;">
+                        <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${c.name}</span>
+                    </label>
+                    <input type="number" id="val${i}" placeholder="0.0" min="0" step="0.001" oninput="calcBatchTotal()" style="width: 100px; padding: 6px; margin: 0; background:rgba(0,0,0,0.3); border:1px solid var(--border); font-size:12px;">
+                </div>`;
+        });
+        checkBtn();
+    }
+
+    async function fetchContactBalances() {
+        if(!provider || contacts.length === 0) return;
+        for(let i=0; i<contacts.length; i++) {
+            try {
+                const b = await provider.getBalance(contacts[i].address);
+                const el = document.getElementById(`bal_${i}`);
+                if(el) el.innerText = `Balance: ${parseFloat(ethers.formatEther(b)).toFixed(4)} THEO`;
+            } catch(e) { console.error("Balance fetch error", e); }
+        }
+    }
+
+    function exportContacts() {
+        if(contacts.length===0) return alert("No contacts to backup.");
+        const blob = new Blob([JSON.stringify(contacts, null, 2)], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = 'autheo_contacts_backup.json'; a.click();
+    }
+
+    function importContacts(e) {
+        const reader = new FileReader();
+        reader.onload = (f) => { 
+            try {
+                const parsed = JSON.parse(f.target.result);
+                if(Array.isArray(parsed)) {
+                    contacts = parsed; localStorage.setItem('auth_contacts_v2', JSON.stringify(contacts)); 
+                    renderContacts(); if(provider) fetchContactBalances();
+                    alert("Contacts restored!");
+                } else alert("Invalid file format.");
+            } catch(e) { alert("Error parsing JSON file."); }
+        };
+        reader.readAsText(e.target.files[0]);
+    }
+
+    // --- CONTRACT MANAGEMENT ---
+    async function deployContract() {
+        const btn = document.getElementById('deployBtn');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = `<span class="spinner"></span> Deploying...`; btn.disabled = true;
+        try {
+            const factory = new ethers.ContractFactory(ABI, BYTECODE, signer);
+            const c = await factory.deploy();
+            const r = await c.deploymentTransaction().wait();
+            const a = await c.getAddress();
+            
+            localStorage.setItem('auth_contract_v2', a);
+            activeContract = a;
+            showDeployedContract(a);
+            
+            const gas = r.fee ? ethers.formatEther(r.fee) : "0";
+            addLedgerEntry({
+                hash: r.hash, action: "Deploy BatchSender Contract", isMaster: true,
+                gas: gas, amount: "0 THEO", details: []
+            });
+        } catch(e) { 
+            console.error(e); alert("Deployment failed. Check testnet funds."); 
+        } finally { 
+            btn.innerHTML = originalText; btn.disabled = false; 
+        }
+    }
+
+    function linkContract() {
+        const addr = document.getElementById('linkInput').value.trim();
+        if(!ethers.isAddress(addr)) return alert("Invalid Address format");
+        localStorage.setItem('auth_contract_v2', addr);
+        activeContract = addr;
+        showDeployedContract(addr);
+    }
+
+    function showDeployedContract(a) {
+        document.getElementById('activeAddr').innerText = a;
+        document.getElementById('deploySection').style.display = "none";
+        document.getElementById('activeBox').style.display = "block";
+        checkBtn();
+    }
+
+    function unlink() { 
+        localStorage.removeItem('auth_contract_v2'); activeContract = ""; 
+        document.getElementById('activeBox').style.display = "none";
+        document.getElementById('deploySection').style.display = "block";
+        document.getElementById('linkInput').value = "";
+        checkBtn(); 
+    }
+
+    // --- TRANSACTIONS ---
+    async function sendSingleTx() {
+        const to = document.getElementById('singleRecipient').value.trim();
+        const v = document.getElementById('singleAmount').value;
+        if(!ethers.isAddress(to) || !v || parseFloat(v)<=0) return alert("Invalid inputs");
+        
+        const btn = document.getElementById('sendSingleBtn'); btn.innerHTML = `<span class="spinner"></span> Sending...`; btn.disabled = true;
+        try {
+            const tx = await signer.sendTransaction({to, value: ethers.parseEther(v)});
+            const r = await tx.wait();
+            const gas = r.fee ? ethers.formatEther(r.fee) : "0";
+            
+            addLedgerEntry({
+                hash: r.hash, action: `Direct Transfer to ${to.substring(0,8)}...`, isMaster: true,
+                gas: gas, amount: `${v} THEO`, details: []
+            });
+            updateBalance(); fetchContactBalances();
+            document.getElementById('singleAmount').value = ""; document.getElementById('contactDropdown').value = ""; document.getElementById('singleRecipient').value = "";
+        } catch(e) { console.error(e); alert("Failed."); } finally { btn.innerHTML = `💸 Send THEO`; btn.disabled = false; }
+    }
+
+    function calcBatchTotal() {
+        let t = 0;
+        contacts.forEach((_, i) => {
+            if(document.getElementById(`chk${i}`).checked) {
+                const val = document.getElementById(`val${i}`).value;
+                if(val) t += parseFloat(val);
+            }
+        });
+        document.getElementById('batchTotalDisplay').innerText = `${t.toFixed(4)} THEO`;
+    }
+
+    function checkBtn() { 
+        document.getElementById('batchBtn').disabled = !(activeContract && contacts.length > 0); 
+    }
+
+    async function executeBatch() {
+        let recips = [], amnts = [], total = 0n;
+        let transferDetails = []; // For detailed ledger
+        
+        contacts.forEach((c, i) => {
+            if(document.getElementById(`chk${i}`).checked) {
+                const val = document.getElementById(`val${i}`).value;
+                if(val && parseFloat(val) > 0) {
+                    recips.push(c.address); 
+                    amnts.push(ethers.parseEther(val)); 
+                    total += ethers.parseEther(val);
+                    transferDetails.push({ name: c.name, address: c.address, amount: val });
+                }
+            }
+        });
+        
+        if(!recips.length) return alert("Select at least one wallet and enter amount.");
+        
+        const btn = document.getElementById('batchBtn'); btn.innerHTML = `<span class="spinner"></span> Executing...`; btn.disabled = true;
+        try {
+            const contract = new ethers.Contract(activeContract, ABI, signer);
+            const tx = await contract.sendBatch(recips, amnts, {value: total});
+            const r = await tx.wait();
+            
+            const gas = r.fee ? ethers.formatEther(r.fee) : "0";
+            const totalEth = ethers.formatEther(total);
+            
+            addLedgerEntry({
+                hash: r.hash, action: `Batch Transfer (via Contract)`, isMaster: true,
+                gas: gas, amount: `${totalEth} THEO Total`, details: transferDetails,
+                contractUsed: activeContract
+            });
+            
+            updateBalance(); fetchContactBalances();
+            // Reset form
+            contacts.forEach((_,i) => { document.getElementById(`chk${i}`).checked=false; document.getElementById(`val${i}`).value=""; }); calcBatchTotal();
+        } catch(e) { console.error(e); alert("Batch execution failed."); } finally { btn.innerHTML = `🔥 Execute Batch Transfer`; btn.disabled = false; }
+    }
+
+    // --- LEDGER & EXPORT ---
+    function addLedgerEntry(entry) {
+        entry.timestamp = new Date().getTime(); // Unix timestamp for sorting/formatting
+        ledgerData.unshift(entry); // Add to top
+        localStorage.setItem('auth_ledger_v2', JSON.stringify(ledgerData));
+        renderLedger();
+    }
+
+    function clearLedger() {
+        if(confirm("Are you sure you want to clear all transaction history?")) {
+            ledgerData = []; localStorage.removeItem('auth_ledger_v2'); renderLedger();
+        }
+    }
+
+    function renderLedger() {
+        const tbody = document.getElementById('ledgerBody');
+        const emptyMsg = document.getElementById('emptyLedgerMsg');
+        tbody.innerHTML = "";
+        
+        if(ledgerData.length === 0) { emptyMsg.style.display = "block"; return; }
+        emptyMsg.style.display = "none";
+        
+        ledgerData.forEach((entry, idx) => {
+            const dateObj = new Date(entry.timestamp);
+            const dateStr = dateObj.toLocaleDateString() + " " + dateObj.toLocaleTimeString();
+            const shortHash = entry.hash.substring(0,8) + "...";
+            
+            // Master Row
+            let html = `
+                <tr style="background: rgba(0,0,0,0.2);">
+                    <td>
+                        <a href="https://testnet-explorer.autheo.com/tx/${entry.hash}" target="_blank" class="explorer-link" title="${entry.hash}">${shortHash}</a>
+                        <button class="icon-btn" onclick="copyText('${entry.hash}')" style="margin-left:5px; padding:2px 4px;">📋</button>
+                    </td>
+                    <td style="font-size:11px;">${dateStr}</td>
+                    <td style="font-weight:500;">${entry.action}</td>
+                    <td>
+                        <div><span style="color:var(--success)">${entry.amount}</span></div>
+                        <div style="font-size:10px; color:var(--text-muted)">Gas: ${parseFloat(entry.gas).toFixed(5)}</div>
+                    </td>
+                </tr>
+            `;
+            
+            // Details Sub-Rows (for Batch)
+            if(entry.details && entry.details.length > 0) {
+                entry.details.forEach(det => {
+                    html += `
+                        <tr class="sub-row">
+                            <td colspan="2" style="font-size:11px; font-family:monospace;">${det.address}</td>
+                            <td><span class="sub-row-indicator">↳</span> Sent to ${det.name}</td>
+                            <td style="color:var(--success); font-weight:bold;">${det.amount} THEO</td>
+                        </tr>
+                    `;
+                });
+                html += `
+                        <tr class="sub-row">
+                            <td colspan="4" style="font-size:10px; text-align:right; border-bottom: 1px dashed var(--border);">
+                                <i>Routed via Contract: ${entry.contractUsed.substring(0,10)}...</i>
+                            </td>
+                        </tr>
+                `;
+            }
+            tbody.innerHTML += html;
+        });
+    }
+
+    function exportLedger(format) {
+        if(ledgerData.length === 0) return alert("Ledger is empty.");
+        let content = ""; let mime = ""; let ext = "";
+        
+        if(format === 'csv') {
+            content = "Date,Time,Transaction Hash,Action,Total Amount,Gas Paid,Recipient Name,Recipient Address,Individual Amount,Contract Used\n";
+            ledgerData.forEach(e => {
+                const d = new Date(e.timestamp);
+                const ds = d.toLocaleDateString(); const ts = d.toLocaleTimeString();
+                
+                if(e.details && e.details.length > 0) {
+                    // For batch, write master row then detail rows
+                    content += `"${ds}","${ts}","${e.hash}","${e.action}","${e.amount}","${e.gas}","","","","${e.contractUsed}"\n`;
+                    e.details.forEach(det => {
+                        content += `"${ds}","${ts}","${e.hash}","Batch Distribution","","","${det.name}","${det.address}","${det.amount}","${e.contractUsed}"\n`;
+                    });
+                } else {
+                    content += `"${ds}","${ts}","${e.hash}","${e.action}","${e.amount}","${e.gas}","","","",""\n`;
+                }
+            });
+            mime = "text/csv;charset=utf-8;"; ext = "csv";
+        } else if(format === 'txt') {
+            content = "--- AUTHEO WALLET LEDGER ---\n\n";
+            ledgerData.forEach(e => {
+                const d = new Date(e.timestamp).toLocaleString();
+                content += `Time: ${d}\nHash: ${e.hash}\nAction: ${e.action}\nTotal: ${e.amount} | Gas: ${e.gas}\n`;
+                if(e.details && e.details.length>0) {
+                    content += `Contract Used: ${e.contractUsed}\nBreakdown:\n`;
+                    e.details.forEach(det => { content += `  -> ${det.amount} THEO to ${det.name} (${det.address})\n`; });
+                }
+                content += "----------------------------------------\n\n";
+            });
+            mime = "text/plain;charset=utf-8;"; ext = "txt";
+        }
+        
+        const blob = new Blob([content], {type: mime});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = `autheo_ledger_export.${ext}`; a.click();
+    }
+
+    function copyText(t) { navigator.clipboard.writeText(t); alert("Copied!"); }
+</script>
+</body>
+</html>
